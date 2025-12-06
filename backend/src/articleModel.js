@@ -1,0 +1,91 @@
+const { query } = require('../database/db');
+
+const articleModel = {
+  async getAll() {
+    try {
+      const result = await query('SELECT * FROM articles ORDER BY created_at DESC');
+      return result.rows;
+    } catch (error) {
+      console.error('❌ Database error in getAll:', error.message);
+      return [
+        {
+          id: '1',
+          title: 'Getting Started with React',
+          content: 'React is a popular JavaScript library for building user interfaces.',
+          topic: 'React',
+          created_at: new Date().toISOString(),
+          author: 'AI Writer'
+        }
+      ];
+    }
+  },
+
+  async getById(id) {
+    try {
+      const result = await query('SELECT * FROM articles WHERE id = $1', [id]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('❌ Database error in getById:', error.message);
+      return null;
+    }
+  },
+
+  async create(articleData) {
+    try {
+      const result = await query(
+        `INSERT INTO articles (title, content, topic, author)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, title, content, topic, author, created_at`,
+        [
+          articleData.title,
+          articleData.content,
+          articleData.topic || 'General',
+          articleData.author || 'AI Writer'
+        ]
+      );
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ Database error in create:', error.message);
+      return {
+        id: Date.now().toString(),
+        title: articleData.title,
+        content: articleData.content,
+        topic: articleData.topic || 'General',
+        created_at: new Date().toISOString(),
+        author: articleData.author || 'AI Writer'
+      };
+    }
+  },
+
+  async getArticleCount() {
+    try {
+      const result = await query('SELECT COUNT(*) FROM articles');
+      return parseInt(result.rows[0].count);
+    } catch (error) {
+      console.error('❌ Database error in getArticleCount:', error.message);
+      return 0;
+    }
+  },
+
+  async initTable() {
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS articles (
+          id SERIAL PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          content TEXT NOT NULL,
+          topic VARCHAR(100),
+          author VARCHAR(100),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('✅ Articles table initialized');
+      return true;
+    } catch (error) {
+      console.error('❌ Error initializing table:', error.message);
+      return false;
+    }
+  }
+};
+
+module.exports = articleModel;

@@ -1,0 +1,45 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_DEFAULT_REGION: "us-east-1"
+  parameter-store:
+    HF_API_KEY: "/blog/hf_api_key"
+
+phases:
+  pre_build:
+    commands:
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - REPOSITORY_URI_BACKEND=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/auto-blog-backend
+      - REPOSITORY_URI_FRONTEND=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/auto-blog-frontend
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=$COMMIT_HASH
+
+  build:
+    commands:
+      - echo "Building Backend Docker image..."
+      - cd backend
+      - docker build -t $REPOSITORY_URI_BACKEND:latest .
+      - docker tag $REPOSITORY_URI_BACKEND:latest $REPOSITORY_URI_BACKEND:$IMAGE_TAG
+      
+      - echo "Building Frontend Docker image..."
+      - cd ../frontend
+      - docker build -t $REPOSITORY_URI_FRONTEND:latest .
+      - docker tag $REPOSITORY_URI_FRONTEND:latest $REPOSITORY_URI_FRONTEND:$IMAGE_TAG
+
+  post_build:
+    commands:
+      - echo "Pushing Docker images to ECR..."
+      - docker push $REPOSITORY_URI_BACKEND:latest
+      - docker push $REPOSITORY_URI_BACKEND:$IMAGE_TAG
+      - docker push $REPOSITORY_URI_FRONTEND:latest
+      - docker push $REPOSITORY_URI_FRONTEND:$IMAGE_TAG
+      
+      - echo "Build completed successfully!"
+      - printf '{"ImageURI":"%s"}' $REPOSITORY_URI_BACKEND:$IMAGE_TAG > imageDetail.json
+      
+artifacts:
+  files:
+    - imageDetail.json
+  discard-paths: yes

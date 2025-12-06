@@ -1,0 +1,1 @@
+  const article = articles.find(a = === req.params.id);

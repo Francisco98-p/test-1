@@ -1,0 +1,267 @@
+// frontend/src/App.jsx
+import { useEffect, useState } from 'react';
+import './App.css';
+
+function App() {
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [selectedArticle, setSelectedArticle] = useState(null);
+
+  // URL directa al backend
+  const API_URL = 'http://localhost:3000/api/articles';
+
+  useEffect(() => {
+    fetchArticles();
+    
+    // Actualizar cada 30 segundos
+    const interval = setInterval(fetchArticles, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchArticles = async () => {
+    try {
+      console.log('🔍 Fetching articles from:', API_URL);
+      
+      const response = await fetch(API_URL);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('📦 Data received:', data);
+      
+      // Manejar diferentes formatos de respuesta
+      if (data.data && Array.isArray(data.data)) {
+        setArticles(data.data);
+      } else if (Array.isArray(data)) {
+        setArticles(data);
+      } else {
+        console.error('Unexpected response format:', data);
+        setArticles([]);
+      }
+      
+      setLoading(false);
+      setError('');
+    } catch (err) {
+      console.error('❌ Fetch error:', err);
+      setError(`Error: ${err.message}. Please ensure backend is running on port 3000.`);
+      setLoading(false);
+    }
+  };
+
+  const generateNewArticle = async () => {
+    try {
+      const generateUrl = 'http://localhost:3000/api/articles/generate';
+      const response = await fetch(generateUrl, { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const result = await response.json();
+      alert(`✅ ${result.message || 'New article generated successfully!'}`);
+      fetchArticles(); // Refresh list
+    } catch (err) {
+      console.error('❌ Generate error:', err);
+      alert('Failed to generate new article');
+    }
+  };
+
+  const handleArticleClick = (article) => {
+    setSelectedArticle(article);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackToList = () => {
+    setSelectedArticle(null);
+  };
+
+  const getTopicClass = (topic) => {
+    if (!topic) return 'topic-default';
+    
+    const topicLower = topic.toLowerCase();
+    if (topicLower.includes('ai') || topicLower.includes('artificial') || topicLower.includes('intelligence')) 
+      return 'topic-ai';
+    if (topicLower.includes('web') || topicLower.includes('development')) 
+      return 'topic-web';
+    if (topicLower.includes('cloud')) 
+      return 'topic-cloud';
+    if (topicLower.includes('react')) 
+      return 'topic-react';
+    if (topicLower.includes('node')) 
+      return 'topic-node';
+    if (topicLower.includes('docker')) 
+      return 'topic-docker';
+    if (topicLower.includes('javascript') || topicLower.includes('js')) 
+      return 'topic-js';
+    if (topicLower.includes('python')) 
+      return 'topic-python';
+    
+    return 'topic-default';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'No date';
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="App">
+        <header className="header">
+          <h1>🤖 Auto-Generated Blog</h1>
+        </header>
+        <main>
+          <div className="loading">
+            <div className="spinner"></div>
+            <p>Loading articles from backend...</p>
+            <p>Backend URL: http://localhost:3000</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (selectedArticle) {
+    return (
+      <div className="App">
+        <header className="header">
+          <h1>📖 Auto-Generated Blog</h1>
+          <button onClick={handleBackToList} className="back-button">
+            ← Back to Articles
+          </button>
+        </header>
+        
+        <main>
+          <article className="article-detail">
+            <h1 className="detail-title">{selectedArticle.title}</h1>
+            
+            <div className="detail-meta">
+              <span className={`topic-badge ${getTopicClass(selectedArticle.topic)}`}>
+                {selectedArticle.topic || 'General'}
+              </span>
+              <span className="detail-author">By {selectedArticle.author || 'AI Writer'}</span>
+              <span className="detail-date">{formatDate(selectedArticle.created_at)}</span>
+            </div>
+            
+            <div className="detail-content">
+              {selectedArticle.content.split('\n').map((paragraph, index) => (
+                <p key={index}>{paragraph}</p>
+              ))}
+            </div>
+          </article>
+        </main>
+        
+        <footer className="footer">
+          <div className="footer-content">
+            <p>Backend running on: http://localhost:3000</p>
+            <div className="tech-stack">
+              <span>React</span>
+              <span>Node.js</span>
+              <span>SQLite</span>
+              <span>Docker</span>
+            </div>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
+  return (
+    <div className="App">
+      <header className="header">
+        <h1>🤖 Auto-Generated Blog</h1>
+        
+        <div className="header-controls">
+          <div className="stats">
+            <div className="article-count">{articles.length} articles</div>
+            <div className="info-text">Auto-generates every 10 minutes</div>
+          </div>
+          
+          <div>
+            <button onClick={fetchArticles} className="refresh-btn">
+              🔄 Refresh
+            </button>
+            <button onClick={generateNewArticle} className="generate-btn">
+              ✨ Generate New
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        {error && (
+          <div className="error">
+            ⚠️ {error}
+          </div>
+        )}
+
+        {articles.length === 0 ? (
+          <div className="empty-state">
+            <h2>No articles found</h2>
+            <p>Make sure your backend is running on http://localhost:3000</p>
+            <button onClick={generateNewArticle} className="generate-btn">
+              Generate First Article
+            </button>
+          </div>
+        ) : (
+          <div className="articles-grid">
+            {articles.slice().reverse().map(article => (
+              <div 
+                key={article.id} 
+                className="article-card"
+                onClick={() => handleArticleClick(article)}
+              >
+                <div className="article-header">
+                  <span className={`topic-badge ${getTopicClass(article.topic)}`}>
+                    {article.topic || 'General'}
+                  </span>
+                  <h2 className="article-title">{article.title}</h2>
+                </div>
+                
+                <div className="article-content">
+                  {article.content.substring(0, 300)}...
+                </div>
+                
+                <div className="article-footer">
+                  <span className="author">By {article.author || 'AI Writer'}</span>
+                  <span className="date">{formatDate(article.created_at)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+      
+      <footer className="footer">
+        <div className="footer-content">
+          <p><strong>⚡ Live Demo</strong> | Auto-generating AI Blog | Backend: http://localhost:3000</p>
+          <div className="tech-stack">
+            <span>React Frontend</span>
+            <span>Node.js Backend</span>
+            <span>SQLite Database</span>
+            <span>AI Content Generation</span>
+            <span>Docker Containers</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+export default App;
